@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playground Live-Code Avançado</title>
+    <!-- Tailwind CSS para interface moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col m-0 overflow-hidden">
+
+    <!-- Input oculto para carregar arquivo HTML -->
+    <input type="file" id="file-input" accept=".html,.htm" class="hidden" onchange="carregarArquivoLocal(event)">
+
+    <!-- Cabeçalho Principal -->
+    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-3 flex flex-wrap justify-between items-center shadow-lg z-20 gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold">
+                ⚡
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-slate-100 tracking-tight">Live Code Playground</h1>
+                <p class="text-[10px] text-slate-400">HTML5, Tailwind, SVG &amp; JavaScript Workspace</p>
+            </div>
+        </div>
+
+        <!-- Ferramentas e Ações -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Alternador de Viewport -->
+            <div class="hidden sm:flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs mr-2">
+                <button onclick="mudarViewport('desktop')" id="btn-desktop" class="px-2.5 py-1 rounded bg-slate-800 text-sky-400 font-medium transition">Desktop</button>
+                <button onclick="mudarViewport('mobile')" id="btn-mobile" class="px-2.5 py-1 rounded text-slate-400 hover:text-slate-200 transition">Mobile</button>
+            </div>
+
+            <button onclick="dispararInputArquivo()" class="bg-slate-800/80 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium transition text-slate-300 border border-slate-700/50 flex items-center gap-1.5">
+                <span>📂</span> Abrir
+            </button>
+            <button onclick="carregarExemplo()" class="bg-slate-800/80 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium transition text-slate-300 border border-slate-700/50 flex items-center gap-1.5">
+                <span>✨</span> Exemplo
+            </button>
+            <button onclick="copiarCodigo()" class="bg-slate-800/80 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium transition text-slate-300 border border-slate-700/50 flex items-center gap-1.5">
+                <span>📋</span> Copiar
+            </button>
+            <button onclick="abrirModalDownload()" class="bg-sky-600 hover:bg-sky-500 text-xs px-3.5 py-1.5 rounded-lg font-semibold transition text-white shadow-lg shadow-sky-900/30 flex items-center gap-1.5 border border-sky-500/30">
+                <span>💾</span> Baixar HTML
+            </button>
+            <button onclick="limparEditor()" class="bg-red-500/10 hover:bg-red-500/20 text-xs px-3 py-1.5 rounded-lg font-medium transition text-red-400 border border-red-500/20">
+                Limpar
+            </button>
+        </div>
+    </header>
+
+    <!-- Área de Trabalho Dividida -->
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-2 h-[calc(100vh-61px)]">
+        
+        <!-- Coluna Esquerda: Editor -->
+        <div class="flex flex-col border-r border-slate-800 bg-slate-900/40 relative">
+            <div class="bg-slate-900/80 px-4 py-2 text-xs font-semibold text-slate-400 border-b border-slate-800 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Editor (HTML/JS)</span>
+                </div>
+                <span id="char-count" class="text-[10px] text-slate-500">0 caracteres</span>
+            </div>
+            <textarea 
+                id="code-input" 
+                class="flex-1 bg-slate-950 text-slate-200 p-4 font-mono text-xs md:text-sm resize-none focus:outline-none leading-relaxed selection:bg-sky-500/30" 
+                placeholder="Digite seu HTML, SVG ou JavaScript aqui..." 
+                spellcheck="false"
+            ></textarea>
+        </div>
+
+        <!-- Coluna Direita: Preview via Iframe Container -->
+        <div class="flex flex-col bg-slate-900/20 items-center justify-center p-0 md:p-4 overflow-hidden">
+            <div class="w-full h-full flex flex-col bg-white rounded-none md:rounded-xl shadow-2xl border border-slate-800 overflow-hidden transition-all duration-300" id="preview-container">
+                <div class="bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-400 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-slate-300">Visualização em Tempo Real</span>
+                    <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Ativo</span>
+                </div>
+                <iframe id="preview-frame" class="flex-1 w-full h-full border-0 bg-white"></iframe>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal para Nomear o Arquivo HTML -->
+    <div id="download-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2"><span>💾</span> Salvar Arquivo HTML</h3>
+                <button onclick="fecharModalDownload()" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Nome do arquivo:</label>
+                <div class="flex items-center bg-slate-950 border border-slate-700 rounded-xl overflow-hidden focus-within:border-sky-500">
+                    <input type="text" id="file-name-input" value="meu-projeto" class="w-full bg-transparent px-3 py-2 text-xs text-slate-200 outline-none">
+                    <span class="px-3 text-xs text-slate-500 bg-slate-900 border-l border-slate-800 py-2">.html</span>
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="fecharModalDownload()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-xs py-2 rounded-xl font-medium text-slate-300 transition">Cancelar</button>
+                <button onclick="confirmarDownload()" class="flex-1 bg-sky-600 hover:bg-sky-500 text-xs py-2 rounded-xl font-semibold text-white transition shadow-lg shadow-sky-900/30">Baixar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Componente Toast de Notificações -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-slate-100 px-4 py-3 rounded-xl border border-slate-700 shadow-2xl text-xs font-medium flex items-center gap-2 z-50">
+        <span id="toast-icon">✨</span>
+        <span id="toast-msg">Ação realizada com sucesso!</span>
+    </div>
+
+    <script>
+        const exemploSvg = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"><\/script>
+</head>
+<body class="bg-slate-950 text-white flex items-center justify-center h-screen m-0">
+    <div class="bg-slate-900 p-8 rounded-2xl border border-slate-800 text-center shadow-2xl max-w-sm">
+        <div class="text-4xl mb-4">🚀</div>
+        <h2 class="text-xl font-bold text-sky-400 mb-2">Playground Dinâmico</h2>
+        <p class="text-slate-400 text-sm mb-6">Modifique este código à vontade no editor à esquerda e veja a mágica acontecer!</p>
+        <button onclick="interagir()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-2.5 rounded-xl transition shadow-lg shadow-sky-900/30">
+            Testar JavaScript
+        </button>
+    </div>
+
+    <script>
+        function interagir() {
+            alert('🎉 JavaScript executado perfeitamente no iframe!');
+        }
+    <\/script>
+</body>
+</html>`;
+
+        const input = document.getElementById('code-input');
+        const iframe = document.getElementById('preview-frame');
+        const charCount = document.getElementById('char-count');
+        const previewContainer = document.getElementById('preview-container');
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-msg');
+        const downloadModal = document.getElementById('download-modal');
+        const fileNameInput = document.getElementById('file-name-input');
+        const fileInput = document.getElementById('file-input');
+
+        // Sistema de Notificações Toast
+        function showToast(msg, icon = '✨') {
+            document.getElementById('toast-icon').textContent = icon;
+            toastMsg.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Configurar rastreamento de hover do preview para destacar o código correspondente
+        function configurarHoverPreview(doc) {
+            if (!doc || !doc.body) return;
+            let elementoAnterior = null;
+
+            doc.body.addEventListener('mouseover', (e) => {
+                e.stopPropagation();
+                const el = e.target;
+                if (!el || el === doc.body || el === doc.documentElement) return;
+
+                if (elementoAnterior && elementoAnterior !== el) {
+                    elementoAnterior.style.outline = '';
+                }
+                elementoAnterior = el;
+                el.style.outline = '2px solid #38bdf8'; // Borda visual no elemento hover
+
+                const code = input.value;
+                const tag = el.tagName.toLowerCase();
+                const id = el.id;
+                const classes = el.className && typeof el.className === 'string' ? el.className.trim().split(/\s+/) : [];
+
+                let query = `<${tag}`;
+                if (id) {
+                    query = `<${tag}[^>]*id=["']${id}["']`;
+                } else if (classes.length > 0 && classes[0]) {
+                    query = `<${tag}[^>]*class=["'][^"']*${classes[0]}[^"']*["']`;
+                }
+
+                try {
+                    const regex = new RegExp(query, 'i');
+                    const match = code.match(regex);
+                    if (match && match.index !== undefined) {
+                        const start = match.index;
+                        const length = el.outerHTML.length;
+                        input.setSelectionRange(start, Math.min(start + length, code.length));
+                    }
+                } catch (err) {
+                    // Silencia erros de regex em casos especiais
+                }
+            });
+
+            doc.body.addEventListener('mouseout', (e) => {
+                const el = e.target;
+                if (el) {
+                    el.style.outline = '';
+                }
+            });
+        }
+
+        // Executar código no Iframe
+        function executarCodigo() {
+            const code = input.value;
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            
+            doc.open();
+            doc.write(code);
+            doc.close();
+
+            charCount.textContent = `${code.length} caracteres`;
+            localStorage.setItem('live_code_content', code);
+
+            // Vincula o recurso de destaque ao documento gerado no iframe
+            configurarHoverPreview(doc);
+        }
+
+        // Acionar abertura do seletor de arquivos local
+        function dispararInputArquivo() {
+            fileInput.click();
+        }
+
+        // Ler o arquivo .html selecionado
+        function carregarArquivoLocal(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                input.value = e.target.result;
+                executarCodigo();
+                showToast(`Arquivo "${file.name}" aberto com sucesso!`, '📂');
+            };
+            reader.onerror = function() {
+                showToast('Erro ao ler o arquivo.', '❌');
+            };
+            reader.readAsText(file);
+
+            event.target.value = '';
+        }
+
+        // Carregar Exemplo Padrão
+        function carregarExemplo() {
+            input.value = exemploSvg;
+            executarCodigo();
+            showToast('Exemplo carregado com sucesso!');
+        }
+
+        // Limpar Editor
+        function limparEditor() {
+            if (confirm('Tem certeza que deseja limpar todo o código?')) {
+                input.value = '';
+                executarCodigo();
+                showToast('Editor limpo.', '🧹');
+            }
+        }
+
+        // Copiar Código
+        function copiarCodigo() {
+            navigator.clipboard.writeText(input.value);
+            showToast('Código copiado para a área de transferência!', '📋');
+        }
+
+        // Funções do Modal de Download
+        function abrirModalDownload() {
+            downloadModal.classList.remove('hidden');
+            fileNameInput.focus();
+            fileNameInput.select();
+        }
+
+        function fecharModalDownload() {
+            downloadModal.classList.add('hidden');
+        }
+
+        function confirmarDownload() {
+            let nome = fileNameInput.value.trim() || 'projeto';
+            if (!nome.endsWith('.html')) {
+                nome += '.html';
+            }
+
+            const blob = new Blob([input.value], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nome;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            fecharModalDownload();
+            showToast(`Arquivo "${nome}" baixado com sucesso!`, '💾');
+        }
+
+        // Alternar visualização responsiva (Desktop / Mobile frame)
+        function mudarViewport(tipo) {
+            const btnDesktop = document.getElementById('btn-desktop');
+            const btnMobile = document.getElementById('btn-mobile');
+
+            if (tipo === 'mobile') {
+                previewContainer.style.maxWidth = '380px';
+                previewContainer.style.height = '95%';
+                previewContainer.style.margin = 'auto';
+                previewContainer.style.borderRadius = '24px';
+                btnMobile.className = 'px-2.5 py-1 rounded bg-slate-800 text-sky-400 font-medium transition';
+                btnDesktop.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-slate-200 transition';
+                showToast('Modo Mobile ativado', '📱');
+            } else {
+                previewContainer.style.maxWidth = '100%';
+                previewContainer.style.height = '100%';
+                previewContainer.style.margin = '0';
+                previewContainer.style.borderRadius = '0';
+                btnDesktop.className = 'px-2.5 py-1 rounded bg-slate-800 text-sky-400 font-medium transition';
+                btnMobile.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-slate-200 transition';
+                showToast('Modo Desktop ativado', '💻');
+            }
+        }
+
+        // Suporte avançado para tecla Tab dentro do textarea
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+                executarCodigo();
+            }
+        });
+
+        input.addEventListener('input', executarCodigo);
+
+        // Inicialização ao abrir a página
+        window.onload = () => {
+            const savedCode = localStorage.getItem('live_code_content');
+            if (savedCode !== null) {
+                input.value = savedCode;
+                executarCodigo();
+            } else {
+                carregarExemplo();
+            }
+        };
+    </script>
+</body>
+</html>
